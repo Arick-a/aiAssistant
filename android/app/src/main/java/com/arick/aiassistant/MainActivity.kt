@@ -135,6 +135,10 @@ private fun AppRoot(
                 DocumentDetailScreen(
                     navController = navController,
                     document = selectedDocument,
+                    uiState = uiState,
+                    onSummarizeClick = viewModel::summarizeSelectedDocument,
+                    onQuestionChange = viewModel::updateQuestion,
+                    onAskClick = viewModel::askSelectedDocument,
                 )
             }
         }
@@ -389,6 +393,10 @@ private fun DocumentCard(
 private fun DocumentDetailScreen(
     navController: NavHostController,
     document: ImportedDocument?,
+    uiState: DocumentImportUiState,
+    onSummarizeClick: () -> Unit,
+    onQuestionChange: (String) -> Unit,
+    onAskClick: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -447,6 +455,90 @@ private fun DocumentDetailScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
                             )
+                        }
+                    }
+                }
+            }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "AI 摘要",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Button(
+                            modifier = Modifier.padding(top = 12.dp),
+                            enabled = !uiState.isSummarizing && document.extractedText.isNotBlank(),
+                            onClick = onSummarizeClick,
+                        ) {
+                            Text(if (uiState.isSummarizing) "生成中..." else "生成摘要")
+                        }
+                        if (uiState.isSummarizing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(top = 12.dp),
+                            )
+                        }
+                        if (uiState.summary.isNotBlank()) {
+                            Text(
+                                modifier = Modifier.padding(top = 12.dp),
+                                text = uiState.summary,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "基于文档提问",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        OutlinedTextField(
+                            value = uiState.question,
+                            onValueChange = onQuestionChange,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            label = { Text("输入你的问题") },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        )
+                        Button(
+                            modifier = Modifier.padding(top = 12.dp),
+                            enabled = !uiState.isAsking && document.extractedText.isNotBlank(),
+                            onClick = onAskClick,
+                        ) {
+                            Text(if (uiState.isAsking) "思考中..." else "提问")
+                        }
+                        if (uiState.isAsking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.padding(top = 12.dp),
+                            )
+                        }
+                        if (uiState.answer.isNotBlank()) {
+                            Text(
+                                modifier = Modifier.padding(top = 12.dp),
+                                text = uiState.answer,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        if (uiState.sources.isNotEmpty()) {
+                            Text(
+                                modifier = Modifier.padding(top = 12.dp),
+                                text = "来源片段",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            uiState.sources.forEachIndexed { index, source ->
+                                Text(
+                                    modifier = Modifier.padding(top = 8.dp),
+                                    text = "${index + 1}. $source",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                         }
                     }
                 }

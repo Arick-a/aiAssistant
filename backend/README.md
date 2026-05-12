@@ -8,11 +8,19 @@
 
 ## 本地启动
 
+后端使用 Python + FastAPI。建议使用虚拟环境，避免污染系统 Python：
+
 ```bash
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+如果需要代码变更后自动重载，可以在本机终端尝试：
+
+```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -21,6 +29,46 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - `http://127.0.0.1:8000/health`
 - `http://127.0.0.1:8000/docs`
 
+健康检查：
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+期望返回：
+
+```json
+{"status":"ok"}
+```
+
+## Android 联调地址
+
+Android 端后端地址配置在：
+
+```text
+android/core-network/src/main/java/com/arick/aiassistant/core/network/NetworkConfig.kt
+```
+
+常见场景：
+
+- Android 模拟器：使用 `http://10.0.2.2:8000/`
+- Android 真机：使用 `http://<电脑局域网 IP>:8000/`
+- USB 调试 + `adb reverse`：可使用 `http://127.0.0.1:8000/`
+
+真机调试前，建议先在手机浏览器访问：
+
+```text
+http://<电脑局域网 IP>:8000/health
+```
+
+如果无法访问，通常是公司 / 校园 WiFi 开启了设备隔离，需要切换到手机热点、无隔离 WiFi，或使用 USB 端口转发。
+
+USB 端口转发示例：
+
+```bash
+adb reverse tcp:8000 tcp:8000
+```
+
 ## 当前实现说明
 
 当前版本是联调占位实现：
@@ -28,4 +76,70 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - `/summarize` 基于文本启发式生成摘要和要点
 - `/ask` 基于命中片段做简单排序并返回答案与来源
 
-下一阶段可在 `services/` 中替换成真实云模型调用。
+当前没有调用真实 AI 模型，也没有使用 embedding、向量数据库或 RAG。主要目的是验证 Android 文档导入、文本提取、接口请求和结果展示的端到端闭环。
+
+下一阶段可在 `app/services/ai_service.py` 中替换成真实云模型调用，例如 OpenAI、DeepSeek、通义、豆包等，并逐步补充：
+
+- 模型调用 provider 封装
+- prompt 模板
+- 文档切块策略
+- embedding 和向量检索
+- 基于来源片段的 RAG 问答
+
+## 接口示例
+
+### `POST /summarize`
+
+请求：
+
+```json
+{
+  "documentId": "doc-1",
+  "title": "sample.txt",
+  "text": "这是一段文档内容。这里是第二句话。",
+  "mode": "summary"
+}
+```
+
+响应：
+
+```json
+{
+  "documentId": "doc-1",
+  "summary": "这是一段文档内容 这里是第二句话",
+  "keyPoints": ["这是一段文档内容", "这里是第二句话"]
+}
+```
+
+### `POST /ask`
+
+请求：
+
+```json
+{
+  "documentId": "doc-1",
+  "question": "文档主要讲什么？",
+  "chunks": [
+    {
+      "chunkId": "doc-1-0",
+      "page": null,
+      "text": "这是一段文档内容。"
+    }
+  ]
+}
+```
+
+响应：
+
+```json
+{
+  "answer": "基于当前命中的文档片段，这是一段文档内容。",
+  "sources": [
+    {
+      "chunkId": "doc-1-0",
+      "page": null,
+      "quote": "这是一段文档内容。"
+    }
+  ]
+}
+```

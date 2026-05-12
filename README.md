@@ -47,3 +47,61 @@ docs/
 - 本地关键词搜索
 - FastAPI 最小后端骨架
 - Android Retrofit 网络层骨架
+- Android 与后端摘要 / 问答接口联调入口
+
+## 本地联调
+
+### 启动后端
+
+后端使用 Python + FastAPI 开发。首次启动需要先创建虚拟环境并安装依赖：
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+启动后可验证：
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+期望返回：
+
+```json
+{"status":"ok"}
+```
+
+### Android 访问后端
+
+后端地址配置在：
+
+```text
+android/core-network/src/main/java/com/arick/aiassistant/core/network/NetworkConfig.kt
+```
+
+不同运行环境使用不同地址：
+
+- Android 模拟器访问电脑后端：`http://10.0.2.2:8000/`
+- 真机和电脑在同一局域网：`http://<电脑局域网 IP>:8000/`
+- 当前开发机示例：`http://192.168.7.133:8000/`
+
+如果真机访问超时，先用手机浏览器打开：
+
+```text
+http://<电脑局域网 IP>:8000/health
+```
+
+如果浏览器也打不开，通常是 WiFi 开启了设备隔离。可以改用手机热点、无隔离局域网，或通过 USB 调试使用 `adb reverse`。
+
+## AI 接口说明
+
+当前 `/summarize` 和 `/ask` 还没有接入真实大模型，只是用于第一阶段联调的占位实现：
+
+- `/summarize`：基于文本句子切分，取前几句生成摘要和要点
+- `/ask`：基于问题关键词对传入片段做简单排序，返回命中片段拼接结果和来源
+
+下一阶段可以在 `backend/app/services/ai_service.py` 中替换为真实模型调用，例如 OpenAI、DeepSeek、通义、豆包等，并逐步加入 embedding、向量检索和 RAG 流程。
