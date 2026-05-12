@@ -71,18 +71,35 @@ adb reverse tcp:8000 tcp:8000
 
 ## 当前实现说明
 
-当前版本是联调占位实现：
+当前版本支持两种模式：
 
-- `/summarize` 基于文本启发式生成摘要和要点
-- `/ask` 基于命中片段做简单排序并返回答案与来源
+- 配置 `AI_PROVIDER=deepseek` 和 `DEEPSEEK_API_KEY` 时，`/summarize` 与 `/ask` 会调用 DeepSeek 云模型
+- 未配置 `DEEPSEEK_API_KEY` 时，自动回退到本地启发式占位实现，便于离线联调
 
-当前没有调用真实 AI 模型，也没有使用 embedding、向量数据库或 RAG。主要目的是验证 Android 文档导入、文本提取、接口请求和结果展示的端到端闭环。
+环境变量可以参考 `.env.example`：
 
-下一阶段可在 `app/services/ai_service.py` 中替换成真实云模型调用，例如 OpenAI、DeepSeek、通义、豆包等，并逐步补充：
+```bash
+AI_PROVIDER=deepseek
+AI_MODEL=deepseek-v4-flash
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+AI_REQUEST_TIMEOUT_SECONDS=30
+```
 
-- 模型调用 provider 封装
-- prompt 模板
-- 文档切块策略
+本地配置示例：
+
+```bash
+cp .env.example .env
+# 编辑 .env，填入 DEEPSEEK_API_KEY
+```
+
+当前还没有使用 embedding、向量数据库或完整 RAG。问答接口会先对 Android 传入的 chunks 做简单关键词排序，选取来源片段，再交给 DeepSeek 生成回答。
+
+后续可继续补充：
+
+- 更多模型厂商 provider
+- 更稳定的 prompt 模板与结构化输出解析
+- 更合理的文档切块与 Top-K 选择策略
 - embedding 和向量检索
 - 基于来源片段的 RAG 问答
 

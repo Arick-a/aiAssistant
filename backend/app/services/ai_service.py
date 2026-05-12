@@ -1,9 +1,50 @@
 from __future__ import annotations
 
+from app.core.config import settings
+from app.providers.deepseek_provider import DeepSeekProvider
 from app.schemas.ai import AskRequest, AskResponse, SourceItem, SummarizeRequest, SummarizeResponse
 
 
 def build_summary(request: SummarizeRequest) -> SummarizeResponse:
+    if should_use_deepseek():
+        summary, key_points = DeepSeekProvider().summarize(request)
+        if summary or key_points:
+            return SummarizeResponse(
+                documentId=request.documentId,
+                summary=summary or "当前文档暂无可总结的文本内容。",
+                keyPoints=key_points or ["暂无可提取要点"],
+            )
+
+    return build_heuristic_summary(request)
+
+
+def build_answer(request: AskRequest) -> AskResponse:
+    sources = select_sources(request)
+    if not sources:
+        return AskResponse(
+            answer="当前没有可用的文档片段，无法基于资料回答。",
+            sources=[],
+        )
+
+    if should_use_deepseek():
+        answer = DeepSeekProvider().ask(request, sources)
+        return AskResponse(
+            answer=answer or "当前资料不足，无法基于文档回答。",
+            sources=sources,
+        )
+
+    joined_sources = " ".join(source.quote for source in sources if source.quote)
+    return AskResponse(
+        answer="基于当前命中的文档片段，" + truncate_text(joined_sources, 220),
+        sources=sources,
+    )
+
+
+def should_use_deepseek() -> bool:
+    return settings.ai_provider.lower() == "deepseek" and bool(settings.deepseek_api_key)
+
+
+def build_heuristic_summary(request: SummarizeRequest) -> SummarizeResponse:
     normalized_text = normalize_whitespace(request.text)
     sentences = split_sentences(normalized_text)
     summary = " ".join(sentences[:2]).strip()
@@ -23,7 +64,7 @@ def build_summary(request: SummarizeRequest) -> SummarizeResponse:
     )
 
 
-def build_answer(request: AskRequest) -> AskResponse:
+def select_sources(request: AskRequest) -> list[SourceItem]:
     ranked_chunks = sorted(
         request.chunks,
         key=lambda item: score_chunk(item.text, request.question),
@@ -37,20 +78,7 @@ def build_answer(request: AskRequest) -> AskResponse:
         )
         for chunk in ranked_chunks[:3]
     ]
-
-    if not sources:
-        answer = "当前没有可用的文档片段，无法基于资料回答。"
-    else:
-        joined_sources = " ".join(source.quote for source in sources if source.quote)
-        answer = (
-            "基于当前命中的文档片段，"
-            + truncate_text(joined_sources, 220)
-        )
-
-    return AskResponse(
-        answer=answer,
-        sources=sources,
-    )
+    return sources
 
 
 def score_chunk(text: str, question: str) -> int:

@@ -99,9 +99,23 @@ http://<电脑局域网 IP>:8000/health
 
 ## AI 接口说明
 
-当前 `/summarize` 和 `/ask` 还没有接入真实大模型，只是用于第一阶段联调的占位实现：
+当前 `/summarize` 和 `/ask` 支持通过后端接入 DeepSeek 云模型。模型 API Key 只配置在后端，不放到 Android 客户端。
 
-- `/summarize`：基于文本句子切分，取前几句生成摘要和要点
-- `/ask`：基于问题关键词对传入片段做简单排序，返回命中片段拼接结果和来源
+后端环境变量示例：
 
-下一阶段可以在 `backend/app/services/ai_service.py` 中替换为真实模型调用，例如 OpenAI、DeepSeek、通义、豆包等，并逐步加入 embedding、向量检索和 RAG 流程。
+```bash
+AI_PROVIDER=deepseek
+AI_MODEL=deepseek-v4-flash
+DEEPSEEK_API_KEY=你的 DeepSeek API Key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+```
+
+如果没有配置 `DEEPSEEK_API_KEY`，后端会回退到本地启发式占位实现，方便继续做联调。
+
+当前实现：
+
+- `/summarize`：配置 DeepSeek 后调用真实模型生成摘要和要点
+- `/ask`：Android 传入文档 chunks，后端选取相关来源片段后调用真实模型回答
+- 来源片段仍由后端返回给 Android 展示
+
+后续可以继续补充 embedding、向量检索和更完整的 RAG 流程。
