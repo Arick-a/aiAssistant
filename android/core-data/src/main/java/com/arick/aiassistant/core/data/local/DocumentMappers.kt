@@ -1,6 +1,7 @@
 package com.arick.aiassistant.core.data.local
 
 import com.arick.aiassistant.core.model.DocumentType
+import com.arick.aiassistant.core.model.DocumentProcessingStatus
 import com.arick.aiassistant.core.model.ImportedDocument
 import java.time.Instant
 
@@ -14,6 +15,7 @@ fun DocumentEntity.asExternalModel(): ImportedDocument {
         extractedText = extractedText,
         importNote = importNote,
         createdAt = Instant.ofEpochMilli(createdAtEpochMillis),
+        processingStatus = DocumentProcessingStatus.valueOf(processingStatus),
     )
 }
 
@@ -27,5 +29,6 @@ fun ImportedDocument.asEntity(): DocumentEntity {
         extractedText = extractedText,
         importNote = importNote,
         createdAtEpochMillis = createdAt.toEpochMilli(),
+        processingStatus = processingStatus.name,
     )
 }

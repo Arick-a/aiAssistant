@@ -2,8 +2,14 @@ package com.arick.aiassistant.core.data.di
 
 import android.content.Context
 import androidx.room.Room
+import com.arick.aiassistant.core.data.local.ConversationDao
 import com.arick.aiassistant.core.data.local.AiAssistantDatabase
 import com.arick.aiassistant.core.data.local.DocumentDao
+import com.arick.aiassistant.core.data.local.MIGRATION_1_3
+import com.arick.aiassistant.core.data.local.MIGRATION_1_4
+import com.arick.aiassistant.core.data.local.MIGRATION_2_3
+import com.arick.aiassistant.core.data.local.MIGRATION_2_4
+import com.arick.aiassistant.core.data.local.MIGRATION_3_4
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,11 +29,18 @@ object DatabaseModule {
             context,
             AiAssistantDatabase::class.java,
             "ai_assistant.db",
-        ).build()
+        )
+            .addMigrations(MIGRATION_1_3, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_1_4, MIGRATION_2_4)
+            .build()
     }
 
     @Provides
     fun provideDocumentDao(database: AiAssistantDatabase): DocumentDao {
         return database.documentDao()
+    }
+
+    @Provides
+    fun provideConversationDao(database: AiAssistantDatabase): ConversationDao {
+        return database.conversationDao()
     }
 }

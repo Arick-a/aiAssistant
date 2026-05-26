@@ -9,20 +9,31 @@ import com.arick.aiassistant.core.network.NetworkConfig
 import com.arick.aiassistant.core.network.model.AskChunkDto
 import com.arick.aiassistant.core.network.model.AskRequestDto
 import com.arick.aiassistant.core.network.model.SummarizeRequestDto
+import com.arick.aiassistant.core.model.ConversationMessage
+import com.arick.aiassistant.core.model.ConversationListItem
+import com.arick.aiassistant.core.model.DocumentConversation
 import com.arick.aiassistant.core.model.ImportedDocument
+import com.arick.aiassistant.core.model.MessageRole
+import com.arick.aiassistant.core.model.MessageSource
 import com.arick.aiassistant.core.model.SearchResult
 import com.arick.aiassistant.core.ml.KeywordSearchEngine
 import com.arick.aiassistant.importing.DocumentImporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.util.UUID
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class DocumentImportViewModel @Inject constructor(
     private val repository: DocumentRepository,
     private val importer: DocumentImporter,
@@ -32,14 +43,30 @@ class DocumentImportViewModel @Inject constructor(
     private val importStatus = MutableStateFlow(false)
     private val statusMessage = MutableStateFlow<String?>(null)
     private val selectedDocument = MutableStateFlow<ImportedDocument?>(null)
+    private val selectedConversation = MutableStateFlow<DocumentConversation?>(null)
+    private val conversationTitleInput = MutableStateFlow("")
     private val searchQuery = MutableStateFlow("")
     private val aiInteractionState = MutableStateFlow(AiInteractionState())
     private val backendHealth = MutableStateFlow(
         BackendHealthUiState(baseUrl = NetworkConfig.DEFAULT_BASE_URL),
     )
     val selectedDocumentState: StateFlow<ImportedDocument?> = selectedDocument
+    private val conversations = selectedDocument.flatMapLatest { document ->
+        if (document == null) {
+            flowOf(emptyList())
+        } else {
+            repository.observeConversations(document.id)
+        }
+    }
+    private val conversationMessages = selectedConversation.flatMapLatest { conversation ->
+        if (conversation == null) {
+            flowOf(emptyList())
+        } else {
+            repository.observeMessages(conversation.id)
+        }
+    }
 
-    private val contentUiState = combine(
+    private val baseContentUiState = combine(
         repository.observeDocuments(),
         importStatus,
         statusMessage,
@@ -61,8 +88,32 @@ class DocumentImportViewModel @Inject constructor(
             )
         }
 
-    val uiState: StateFlow<DocumentImportUiState> = combine(
+    private val contentUiState = combine(
+        baseContentUiState,
+        conversationMessages,
+        repository.observeAllConversations(),
+    ) { contentState, messages, allConversations ->
+        contentState.copy(
+            conversationMessages = messages,
+            allConversations = allConversations,
+        )
+    }
+
+    private val conversationUiState = combine(
         contentUiState,
+        conversations,
+        selectedConversation,
+        conversationTitleInput,
+    ) { contentState, conversationList, currentConversation, titleInput ->
+        contentState.copy(
+            conversations = conversationList,
+            selectedConversationId = currentConversation?.id,
+            conversationTitleInput = titleInput,
+        )
+    }
+
+    val uiState: StateFlow<DocumentImportUiState> = combine(
+        conversationUiState,
         backendHealth,
     ) { contentState, healthState ->
         contentState.copy(backendHealth = healthState)
@@ -92,14 +143,73 @@ class DocumentImportViewModel @Inject constructor(
         }
     }
 
-    fun loadDocument(documentId: String) {
+    fun loadDocument(
+        documentId: String,
+        conversationId: String? = null,
+    ) {
         viewModelScope.launch {
             val previousDocumentId = selectedDocument.value?.id
             val document = repository.getDocument(documentId)
             selectedDocument.value = document
-            if (previousDocumentId != document?.id) {
+            if (document == null) {
+                selectedConversation.value = null
+                conversationTitleInput.value = ""
                 aiInteractionState.value = AiInteractionState()
+                return@launch
             }
+            if (previousDocumentId != document.id || conversationId != null) {
+                aiInteractionState.value = AiInteractionState()
+                val conversation = conversationId
+                    ?.let { repository.getConversation(it) }
+                    ?.takeIf { it.documentId == document.id }
+                    ?: repository.getOrCreateConversation(
+                        documentId = document.id,
+                        defaultTitle = "默认会话",
+                    )
+                selectedConversation.value = conversation
+                conversationTitleInput.value = conversation.title
+            }
+        }
+    }
+
+    fun selectConversation(conversationId: String) {
+        viewModelScope.launch {
+            val conversation = repository.getConversation(conversationId) ?: return@launch
+            selectedConversation.value = conversation
+            conversationTitleInput.value = conversation.title
+            aiInteractionState.value = AiInteractionState()
+        }
+    }
+
+    fun createConversation() {
+        val document = selectedDocument.value ?: return
+        val title = nextConversationTitle(uiState.value.conversations)
+        viewModelScope.launch {
+            val conversation = repository.createConversation(
+                documentId = document.id,
+                title = title,
+            )
+            selectedConversation.value = conversation
+            conversationTitleInput.value = conversation.title
+            aiInteractionState.value = AiInteractionState()
+        }
+    }
+
+    fun updateConversationTitle(title: String) {
+        conversationTitleInput.value = title
+    }
+
+    fun renameSelectedConversation() {
+        val conversation = selectedConversation.value ?: return
+        val title = conversationTitleInput.value.trim()
+        if (title.isBlank()) {
+            statusMessage.value = "会话名称不能为空"
+            return
+        }
+        viewModelScope.launch {
+            repository.renameConversation(conversation.id, title)
+            selectedConversation.value = conversation.copy(title = title)
+            statusMessage.value = "已重命名会话"
         }
     }
 
@@ -183,8 +293,13 @@ class DocumentImportViewModel @Inject constructor(
     fun askSelectedDocument() {
         val document = selectedDocument.value ?: return
         val question = aiInteractionState.value.question.trim()
+        val conversation = selectedConversation.value
         if (question.isBlank()) {
             statusMessage.value = "请先输入问题"
+            return
+        }
+        if (conversation == null) {
+            statusMessage.value = "当前文档没有可用会话"
             return
         }
         if (document.extractedText.isBlank()) {
@@ -207,22 +322,69 @@ class DocumentImportViewModel @Inject constructor(
                     ),
                 )
             }.onSuccess { response ->
+                val sources = response.sources.map { source ->
+                    AiSourceUiItem(
+                        chunkId = source.chunkId,
+                        page = source.page,
+                        quote = source.quote,
+                    )
+                }
                 aiInteractionState.value = aiInteractionState.value.copy(
                     isAsking = false,
                     answer = response.answer,
-                    sources = response.sources.map { source ->
-                        AiSourceUiItem(
-                            chunkId = source.chunkId,
-                            page = source.page,
-                            quote = source.quote,
-                        )
-                    },
+                    sources = sources,
+                    question = "",
+                )
+                persistQaMessages(
+                    conversationId = conversation.id,
+                    documentId = document.id,
+                    question = question,
+                    answer = response.answer,
+                    sources = sources,
                 )
             }.onFailure { throwable ->
                 aiInteractionState.value = aiInteractionState.value.copy(isAsking = false)
                 statusMessage.value = formatAiRequestError(throwable)
             }
         }
+    }
+
+    private suspend fun persistQaMessages(
+        conversationId: String,
+        documentId: String,
+        question: String,
+        answer: String,
+        sources: List<AiSourceUiItem>,
+    ) {
+        val now = Instant.now()
+        val userMessage = ConversationMessage(
+            id = UUID.randomUUID().toString(),
+            conversationId = conversationId,
+            documentId = documentId,
+            role = MessageRole.USER,
+            content = question,
+            createdAt = now,
+        )
+        val assistantMessageId = UUID.randomUUID().toString()
+        val assistantMessage = ConversationMessage(
+            id = assistantMessageId,
+            conversationId = conversationId,
+            documentId = documentId,
+            role = MessageRole.ASSISTANT,
+            content = answer,
+            createdAt = now.plusMillis(1),
+            sources = sources.map { source ->
+                MessageSource(
+                    id = UUID.randomUUID().toString(),
+                    messageId = assistantMessageId,
+                    chunkId = source.chunkId,
+                    page = source.page,
+                    quote = source.quote,
+                )
+            },
+        )
+        repository.addMessage(userMessage)
+        repository.addMessage(assistantMessage)
     }
 }
 
@@ -239,6 +401,11 @@ data class DocumentImportUiState(
     val isSummarizing: Boolean = false,
     val isAsking: Boolean = false,
     val backendHealth: BackendHealthUiState = BackendHealthUiState(baseUrl = NetworkConfig.DEFAULT_BASE_URL),
+    val conversationMessages: List<ConversationMessage> = emptyList(),
+    val conversations: List<DocumentConversation> = emptyList(),
+    val allConversations: List<ConversationListItem> = emptyList(),
+    val selectedConversationId: String? = null,
+    val conversationTitleInput: String = "",
 )
 
 private data class AiInteractionState(

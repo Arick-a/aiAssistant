@@ -7,6 +7,7 @@ import android.provider.OpenableColumns
 import com.arick.aiassistant.core.ml.DocumentTextExtractor
 import com.arick.aiassistant.core.ml.ExtractionResult
 import com.arick.aiassistant.core.model.DocumentType
+import com.arick.aiassistant.core.model.DocumentProcessingStatus
 import com.arick.aiassistant.core.model.ImportedDocument
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
@@ -48,6 +49,11 @@ class DocumentImporter @Inject constructor(
             extractedText = extractionResult.text,
             importNote = extractionResult.note,
             createdAt = Instant.now(),
+            processingStatus = if (extractionResult.text.isBlank()) {
+                DocumentProcessingStatus.FAILED
+            } else {
+                DocumentProcessingStatus.READY
+            },
         )
     }
 

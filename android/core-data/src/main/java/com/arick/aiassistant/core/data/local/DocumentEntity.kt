@@ -13,4 +13,5 @@ data class DocumentEntity(
     val extractedText: String,
     val importNote: String?,
     val createdAtEpochMillis: Long,
+    val processingStatus: String,
 )

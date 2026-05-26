@@ -31,6 +31,8 @@ dependencies {
     implementation(libs.hilt.android)
     kapt(libs.androidx.room.compiler)
     kapt(libs.hilt.compiler)
+
+    testImplementation(libs.junit)
 }
 
 kapt {
