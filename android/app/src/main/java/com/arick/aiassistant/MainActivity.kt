@@ -13,22 +13,34 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,15 +53,18 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.arick.aiassistant.core.model.DocumentType
 import com.arick.aiassistant.core.model.ImportedDocument
 import com.arick.aiassistant.core.model.SearchResult
+import com.arick.aiassistant.ui.BackendHealthUiState
 import com.arick.aiassistant.ui.DocumentImportUiState
 import com.arick.aiassistant.ui.DocumentImportViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -82,6 +97,8 @@ private fun AppRoot(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val selectedDocument by viewModel.selectedDocumentState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
@@ -98,6 +115,22 @@ private fun AppRoot(
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        bottomBar = {
+            if (currentRoute in MainTab.routes) {
+                MainBottomBar(
+                    currentRoute = currentRoute,
+                    onTabClick = { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
+            }
+        },
     ) { innerPadding ->
         NavHost(
             navController = navController,
@@ -116,6 +149,26 @@ private fun AppRoot(
                     onSearchClick = {
                         navController.navigate("search")
                     },
+                )
+            }
+            composable("library") {
+                LibraryScreen(
+                    uiState = uiState,
+                    onImportClick = {
+                        importLauncher.launch(arrayOf("*/*"))
+                    },
+                    onDocumentClick = { document ->
+                        navController.navigate("detail/${document.id}")
+                    },
+                    onSearchClick = {
+                        navController.navigate("search")
+                    },
+                )
+            }
+            composable("settings") {
+                SettingsScreen(
+                    health = uiState.backendHealth,
+                    onCheckBackendClick = viewModel::checkBackendHealth,
                 )
             }
             composable("search") {
@@ -145,6 +198,43 @@ private fun AppRoot(
     }
 }
 
+private data class MainTab(
+    val route: String,
+    val label: String,
+    val icon: ImageVector,
+) {
+    companion object {
+        val items = listOf(
+            MainTab(route = "home", label = "首页", icon = Icons.Filled.Home),
+            MainTab(route = "library", label = "文档", icon = Icons.Filled.Folder),
+            MainTab(route = "settings", label = "设置", icon = Icons.Filled.Settings),
+        )
+        val routes = items.map { it.route }.toSet()
+    }
+}
+
+@Composable
+private fun MainBottomBar(
+    currentRoute: String?,
+    onTabClick: (String) -> Unit,
+) {
+    NavigationBar {
+        MainTab.items.forEach { tab ->
+            NavigationBarItem(
+                selected = currentRoute == tab.route,
+                onClick = { onTabClick(tab.route) },
+                icon = {
+                    Icon(
+                        imageVector = tab.icon,
+                        contentDescription = tab.label,
+                    )
+                },
+                label = { Text(tab.label) },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HomeScreen(
@@ -155,7 +245,17 @@ private fun HomeScreen(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("AI Assistant") })
+            TopAppBar(
+                title = { Text("AI Assistant") },
+                actions = {
+                    TopBarDocumentActions(
+                        importLabel = "导入",
+                        searchLabel = "搜索",
+                        onImportClick = onImportClick,
+                        onSearchClick = onSearchClick,
+                    )
+                },
+            )
         },
     ) { innerPadding ->
         Column(
@@ -165,42 +265,126 @@ private fun HomeScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
             Text(
-                text = "第一阶段当前已完成文档导入最小闭环。",
-                style = MaterialTheme.typography.titleMedium,
+                text = "导入并提问你的文档",
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 modifier = Modifier.padding(top = 8.dp),
-                text = "现在支持 txt/md 直接提取文本，图片执行本地 OCR，PDF 执行页渲染后 OCR。为控制耗时，PDF 当前最多处理前 8 页。",
+                text = "当前支持文档导入、OCR、本地搜索、AI 摘要和单文档问答。",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Button(onClick = onImportClick) {
-                    Text("导入文档")
-                }
-                Button(onClick = onSearchClick) {
-                    Text("搜索")
-                }
-                if (uiState.isImporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
+            if (uiState.isImporting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(top = 16.dp),
+                )
             }
+            Text(
+                modifier = Modifier.padding(top = 24.dp),
+                text = "最近文档",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
             if (uiState.documents.isEmpty()) {
                 EmptyState(
-                    modifier = Modifier.padding(top = 32.dp),
+                    modifier = Modifier.padding(top = 12.dp),
                 )
             } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 20.dp),
+                        .padding(top = 12.dp),
+                    contentPadding = PaddingValues(bottom = 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(uiState.documents.take(5), key = { it.id }) { document ->
+                        DocumentCard(
+                            document = document,
+                            onClick = { onDocumentClick(document) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopBarDocumentActions(
+    importLabel: String,
+    searchLabel: String,
+    onImportClick: () -> Unit,
+    onSearchClick: () -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        TextButton(onClick = onImportClick) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = null,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(importLabel)
+        }
+        TextButton(onClick = onSearchClick) {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = null,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(searchLabel)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LibraryScreen(
+    uiState: DocumentImportUiState,
+    onImportClick: () -> Unit,
+    onDocumentClick: (ImportedDocument) -> Unit,
+    onSearchClick: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("文档库") },
+                actions = {
+                    TopBarDocumentActions(
+                        importLabel = "导入",
+                        searchLabel = "搜索",
+                        onImportClick = onImportClick,
+                        onSearchClick = onSearchClick,
+                    )
+                },
+            )
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+        ) {
+            if (uiState.isImporting) {
+                CircularProgressIndicator()
+            }
+            Text(
+                modifier = Modifier.padding(top = if (uiState.isImporting) 20.dp else 0.dp),
+                text = "全部文档 ${uiState.documents.size}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (uiState.documents.isEmpty()) {
+                EmptyState(
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = 12.dp),
                     contentPadding = PaddingValues(bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -211,6 +395,83 @@ private fun HomeScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsScreen(
+    health: BackendHealthUiState,
+    onCheckBackendClick: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text("设置") })
+        },
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(20.dp),
+        ) {
+            BackendStatusCard(
+                health = health,
+                onCheckClick = onCheckBackendClick,
+            )
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "当前阶段",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        modifier = Modifier.padding(top = 8.dp),
+                        text = "MVP 联调：导入、OCR、本地搜索、摘要、问答。",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BackendStatusCard(
+    modifier: Modifier = Modifier,
+    health: BackendHealthUiState,
+    onCheckClick: () -> Unit,
+) {
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "后端状态：${health.status}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                modifier = Modifier.padding(top = 6.dp),
+                text = health.baseUrl,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                modifier = Modifier.padding(top = 8.dp),
+                text = health.detail,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                modifier = Modifier.padding(top = 12.dp),
+                enabled = !health.isChecking,
+                onClick = onCheckClick,
+            ) {
+                Text(if (health.isChecking) "检测中..." else "检测后端")
             }
         }
     }
@@ -533,11 +794,18 @@ private fun DocumentDetailScreen(
                                 fontWeight = FontWeight.SemiBold,
                             )
                             uiState.sources.forEachIndexed { index, source ->
-                                Text(
-                                    modifier = Modifier.padding(top = 8.dp),
-                                    text = "${index + 1}. $source",
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
+                                Column(modifier = Modifier.padding(top = 8.dp)) {
+                                    Text(
+                                        text = "${index + 1}. ${source.displayLabel()}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        modifier = Modifier.padding(top = 4.dp),
+                                        text = source.quote,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
                             }
                         }
                     }

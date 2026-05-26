@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arick.aiassistant.core.data.DocumentRepository
 import com.arick.aiassistant.core.network.AiAssistantApiService
+import com.arick.aiassistant.core.network.NetworkConfig
 import com.arick.aiassistant.core.network.model.AskChunkDto
 import com.arick.aiassistant.core.network.model.AskRequestDto
 import com.arick.aiassistant.core.network.model.SummarizeRequestDto
@@ -33,9 +34,12 @@ class DocumentImportViewModel @Inject constructor(
     private val selectedDocument = MutableStateFlow<ImportedDocument?>(null)
     private val searchQuery = MutableStateFlow("")
     private val aiInteractionState = MutableStateFlow(AiInteractionState())
+    private val backendHealth = MutableStateFlow(
+        BackendHealthUiState(baseUrl = NetworkConfig.DEFAULT_BASE_URL),
+    )
     val selectedDocumentState: StateFlow<ImportedDocument?> = selectedDocument
 
-    val uiState: StateFlow<DocumentImportUiState> = combine(
+    private val contentUiState = combine(
         repository.observeDocuments(),
         importStatus,
         statusMessage,
@@ -56,11 +60,22 @@ class DocumentImportViewModel @Inject constructor(
                 isAsking = aiState.isAsking,
             )
         }
+
+    val uiState: StateFlow<DocumentImportUiState> = combine(
+        contentUiState,
+        backendHealth,
+    ) { contentState, healthState ->
+        contentState.copy(backendHealth = healthState)
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = DocumentImportUiState(),
         )
+
+    init {
+        checkBackendHealth()
+    }
 
     fun importDocument(uri: Uri) {
         viewModelScope.launch {
@@ -96,6 +111,39 @@ class DocumentImportViewModel @Inject constructor(
         searchQuery.value = query
     }
 
+    fun checkBackendHealth() {
+        viewModelScope.launch {
+            backendHealth.value = backendHealth.value.copy(
+                status = "检测中",
+                detail = "正在访问 ${backendHealth.value.baseUrl}health",
+                isChecking = true,
+            )
+            runCatching {
+                apiService.health()
+            }.onSuccess { response ->
+                backendHealth.value = if (response.status == "ok") {
+                    backendHealth.value.copy(
+                        status = "后端可用",
+                        detail = "健康检查通过，可以发起摘要和问答请求。",
+                        isChecking = false,
+                    )
+                } else {
+                    backendHealth.value.copy(
+                        status = "状态异常",
+                        detail = "后端返回状态：${response.status}",
+                        isChecking = false,
+                    )
+                }
+            }.onFailure { throwable ->
+                backendHealth.value = backendHealth.value.copy(
+                    status = "连接失败",
+                    detail = formatBackendHealthError(throwable),
+                    isChecking = false,
+                )
+            }
+        }
+    }
+
     fun summarizeSelectedDocument() {
         val document = selectedDocument.value ?: return
         if (document.extractedText.isBlank()) {
@@ -123,7 +171,7 @@ class DocumentImportViewModel @Inject constructor(
                 )
             }.onFailure { throwable ->
                 aiInteractionState.value = aiInteractionState.value.copy(isSummarizing = false)
-                statusMessage.value = throwable.message ?: "生成摘要失败"
+                statusMessage.value = formatAiRequestError(throwable)
             }
         }
     }
@@ -162,11 +210,17 @@ class DocumentImportViewModel @Inject constructor(
                 aiInteractionState.value = aiInteractionState.value.copy(
                     isAsking = false,
                     answer = response.answer,
-                    sources = response.sources.map { it.quote },
+                    sources = response.sources.map { source ->
+                        AiSourceUiItem(
+                            chunkId = source.chunkId,
+                            page = source.page,
+                            quote = source.quote,
+                        )
+                    },
                 )
             }.onFailure { throwable ->
                 aiInteractionState.value = aiInteractionState.value.copy(isAsking = false)
-                statusMessage.value = throwable.message ?: "提问失败"
+                statusMessage.value = formatAiRequestError(throwable)
             }
         }
     }
@@ -181,16 +235,17 @@ data class DocumentImportUiState(
     val question: String = "",
     val summary: String = "",
     val answer: String = "",
-    val sources: List<String> = emptyList(),
+    val sources: List<AiSourceUiItem> = emptyList(),
     val isSummarizing: Boolean = false,
     val isAsking: Boolean = false,
+    val backendHealth: BackendHealthUiState = BackendHealthUiState(baseUrl = NetworkConfig.DEFAULT_BASE_URL),
 )
 
 private data class AiInteractionState(
     val question: String = "",
     val summary: String = "",
     val answer: String = "",
-    val sources: List<String> = emptyList(),
+    val sources: List<AiSourceUiItem> = emptyList(),
     val isSummarizing: Boolean = false,
     val isAsking: Boolean = false,
 )

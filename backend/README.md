@@ -8,7 +8,22 @@
 
 ## 本地启动
 
-后端使用 Python + FastAPI。建议使用虚拟环境，避免污染系统 Python：
+后端使用 Python + FastAPI。推荐从项目根目录执行脚本启动：
+
+```bash
+./scripts/start_backend.sh
+```
+
+脚本会自动创建 `backend/.venv`、安装依赖，并启动 `uvicorn`。
+启动前会打印本机访问地址和当前局域网访问地址，真机调试优先使用 `LAN` / `Health` 对应地址。
+
+如果需要指定监听地址或端口：
+
+```bash
+BACKEND_HOST=0.0.0.0 BACKEND_PORT=8000 ./scripts/start_backend.sh
+```
+
+也可以手动使用虚拟环境启动：
 
 ```bash
 cd backend
