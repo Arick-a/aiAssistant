@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,9 +32,15 @@ internal fun DocumentSummaryTab(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            AssistantPanel(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
+                        text = "AI SUMMARY",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = AssistantOrange,
+                    )
+                    Text(
+                        modifier = Modifier.padding(top = 6.dp),
                         text = "AI 摘要",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
@@ -52,20 +57,27 @@ internal fun DocumentSummaryTab(
                             modifier = Modifier.padding(top = 10.dp),
                             text = "文档${document.processingStatus.displayName()}，暂不能生成摘要。",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = InkMuted,
                         )
                     }
                     if (uiState.isSummarizing) {
                         CircularProgressIndicator(
                             modifier = Modifier.padding(top = 12.dp),
+                            color = AssistantOrange,
                         )
                     }
                     if (uiState.summary.isNotBlank()) {
-                        Text(
+                        AssistantPanel(
                             modifier = Modifier.padding(top = 12.dp),
-                            text = uiState.summary,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                            containerColor = InkBlack,
+                        ) {
+                            Text(
+                                modifier = Modifier.padding(14.dp),
+                                text = uiState.summary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = InkMuted,
+                            )
+                        }
                     }
                 }
             }

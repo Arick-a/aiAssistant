@@ -3,16 +3,15 @@ package com.arick.aiassistant
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,16 +26,21 @@ internal fun SettingsScreen(
     onCheckBackendClick: () -> Unit,
 ) {
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("设置") })
-        },
+        containerColor = InkBlack,
+        contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(20.dp),
+                .padding(start = 20.dp, top = 0.dp, end = 20.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            CompactPageHeader(
+                title = "设置",
+                eyebrow = "SYSTEM",
+                subtitle = "服务连接与实验配置",
+            )
             BackendStatusCard(
                 health = health,
                 onCheckClick = onCheckBackendClick,
@@ -51,7 +55,7 @@ private fun BackendStatusCard(
     health: BackendHealthUiState,
     onCheckClick: () -> Unit,
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
+    AssistantPanel(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -80,13 +84,13 @@ private fun BackendStatusCard(
                 modifier = Modifier.padding(top = 4.dp),
                 text = health.detail,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = InkMuted,
             )
             Text(
                 modifier = Modifier.padding(top = 8.dp),
                 text = health.baseUrl,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = InkMuted,
             )
         }
     }

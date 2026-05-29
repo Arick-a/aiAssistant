@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.arick.aiassistant.core.model.ConversationMessage
@@ -89,10 +90,11 @@ internal fun ConversationMessageItem(
 ) {
     val isUser = message.role == MessageRole.USER
     val bubbleColor = if (isUser) {
-        MaterialTheme.colorScheme.primaryContainer
+        AssistantOrange
     } else {
-        MaterialTheme.colorScheme.surfaceVariant
+        InkSurface
     }
+    val contentColor = if (isUser) InkBlack else Color.White
     val horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
 
     Column(
@@ -117,12 +119,13 @@ internal fun ConversationMessageItem(
                 text = if (isUser) "我" else "AI",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
+                color = if (isUser) InkBlack else AssistantOrange,
             )
             Text(
                 modifier = Modifier.padding(top = 6.dp),
                 text = message.content,
                 style = MaterialTheme.typography.bodyMedium,
+                color = contentColor,
             )
             if (message.sources.isNotEmpty()) {
                 Text(
@@ -130,12 +133,14 @@ internal fun ConversationMessageItem(
                     text = "来源片段",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
+                    color = if (isUser) InkBlack else AssistantOrange,
                 )
                 message.sources.forEachIndexed { index, source ->
                     Text(
                         modifier = Modifier.padding(top = 4.dp),
                         text = "${index + 1}. ${source.chunkId}${source.page?.let { " · 第 $it 页" } ?: ""}：${source.quote}",
                         style = MaterialTheme.typography.bodySmall,
+                        color = if (isUser) InkBlack else InkMuted,
                     )
                 }
             }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -41,8 +42,10 @@ internal fun DocumentDetailScreen(
     val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
+        containerColor = InkBlack,
         topBar = {
             TopAppBar(
+                colors = assistantTopAppBarColors(),
                 title = { Text(document?.title ?: "文档详情") },
             )
         },
@@ -62,7 +65,11 @@ internal fun DocumentDetailScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+            PrimaryTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = InkBlack,
+                contentColor = AssistantOrange,
+            ) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = pagerState.currentPage == index,
@@ -71,7 +78,16 @@ internal fun DocumentDetailScreen(
                                 pagerState.animateScrollToPage(index)
                             }
                         },
-                        text = { Text(title) },
+                        text = {
+                            Text(
+                                text = title,
+                                color = if (pagerState.currentPage == index) {
+                                    AssistantOrange
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        },
                     )
                 }
             }

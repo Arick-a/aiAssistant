@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -99,9 +98,15 @@ private fun ConversationSetupCard(
     onConversationTitleChange: (String) -> Unit,
     onRenameConversationClick: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    AssistantPanel(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
+                text = "ASK SOURCES",
+                style = MaterialTheme.typography.labelMedium,
+                color = AssistantOrange,
+            )
+            Text(
+                modifier = Modifier.padding(top = 6.dp),
                 text = "基于文档提问",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -128,7 +133,7 @@ private fun QaInputBar(
     onQuestionChange: (String) -> Unit,
     onAskClick: () -> Unit,
 ) {
-    Card(
+    AssistantPanel(
         modifier = Modifier
             .fillMaxWidth()
             .imePadding()
@@ -162,6 +167,7 @@ private fun QaInputBar(
         if (isAsking) {
             CircularProgressIndicator(
                 modifier = Modifier.padding(start = 16.dp, bottom = 12.dp),
+                color = AssistantOrange,
             )
         }
     }

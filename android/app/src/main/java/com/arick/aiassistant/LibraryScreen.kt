@@ -3,7 +3,10 @@ package com.arick.aiassistant
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,8 +15,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,31 +32,38 @@ internal fun LibraryScreen(
     onSearchClick: () -> Unit,
 ) {
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("文档库") },
-                actions = {
-                    TopBarDocumentActions(
-                        importLabel = "导入",
-                        searchLabel = "搜索",
-                        onImportClick = onImportClick,
-                        onSearchClick = onSearchClick,
-                    )
-                },
-            )
-        },
+        containerColor = InkBlack,
+        contentWindowInsets = WindowInsets(0.dp),
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(start = 20.dp, top = 0.dp, end = 20.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CompactPageHeader(
+                    modifier = Modifier.weight(1f),
+                    title = "文档库",
+                    eyebrow = "DOCUMENTS",
+                    subtitle = "管理本地导入资料",
+                )
+                TopBarDocumentActions(
+                    importLabel = "导入",
+                    searchLabel = "搜索",
+                    onImportClick = onImportClick,
+                    onSearchClick = onSearchClick,
+                )
+            }
             if (uiState.isImporting) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = AssistantOrange)
             }
             Text(
-                modifier = Modifier.padding(top = if (uiState.isImporting) 20.dp else 0.dp),
                 text = "全部文档 ${uiState.documents.size}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -64,9 +74,7 @@ internal fun LibraryScreen(
                 )
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 12.dp),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {

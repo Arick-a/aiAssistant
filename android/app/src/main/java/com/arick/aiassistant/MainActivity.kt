@@ -1,14 +1,27 @@
 package com.arick.aiassistant
 
 import android.content.Intent
+import android.graphics.Color.rgb
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Folder
@@ -16,8 +29,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -27,9 +39,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -44,6 +60,10 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(rgb(17, 17, 17)),
+            navigationBarStyle = SystemBarStyle.dark(rgb(17, 17, 17)),
+        )
         setContent {
             AiAssistantTheme {
                 Surface(
@@ -83,6 +103,7 @@ private fun AppRoot(
     }
 
     Scaffold(
+        containerColor = InkBlack,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             if (currentRoute in MainTab.routes) {
@@ -112,11 +133,11 @@ private fun AppRoot(
                     onImportClick = {
                         importLauncher.launch(arrayOf("*/*"))
                     },
-                    onDocumentClick = { document ->
-                        navController.navigate("detail/${document.id}")
-                    },
                     onSearchClick = {
                         navController.navigate("search")
+                    },
+                    onDocumentClick = { document ->
+                        navController.navigate("detail/${document.id}")
                     },
                 )
             }
@@ -211,19 +232,56 @@ private fun MainBottomBar(
     currentRoute: String?,
     onTabClick: (String) -> Unit,
 ) {
-    NavigationBar {
-        MainTab.items.forEach { tab ->
-            NavigationBarItem(
-                selected = currentRoute == tab.route,
-                onClick = { onTabClick(tab.route) },
-                icon = {
-                    Icon(
-                        imageVector = tab.icon,
-                        contentDescription = tab.label,
-                    )
-                },
-                label = { Text(tab.label) },
-            )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(InkBlack)
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(62.dp)
+                .clip(RoundedCornerShape(31.dp)),
+            color = Color.White.copy(alpha = 0.70f),
+            shape = RoundedCornerShape(31.dp),
+            border = null,
+            tonalElevation = NavigationBarDefaults.Elevation,
+        ) {
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                MainTab.items.forEach { tab ->
+                    val selected = currentRoute == tab.route
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                            .clip(RoundedCornerShape(25.dp))
+                            .background(if (selected) InkBlack else Color.Transparent)
+                            .clickable { onTabClick(tab.route) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = tab.label,
+                            modifier = Modifier.size(21.dp),
+                            tint = if (selected) AssistantOrange else Color(0xFF666666),
+                        )
+                        Text(
+                            text = tab.label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (selected) Color.White else Color(0xFF666666),
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
         }
     }
 }

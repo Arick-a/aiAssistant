@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -33,8 +32,12 @@ internal fun SearchScreen(
     onResultClick: (SearchResult) -> Unit,
 ) {
     Scaffold(
+        containerColor = InkBlack,
         topBar = {
-            TopAppBar(title = { Text("关键词搜索") })
+            TopAppBar(
+                colors = assistantTopAppBarColors(),
+                title = { Text("关键词搜索") },
+            )
         },
     ) { innerPadding ->
         Column(
@@ -42,6 +45,7 @@ internal fun SearchScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             OutlinedTextField(
                 value = uiState.searchQuery,
@@ -52,9 +56,9 @@ internal fun SearchScreen(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             )
             Text(
-                modifier = Modifier.padding(top = 12.dp),
                 text = "基于本地提取文本做关键词检索，当前为内存切块搜索。",
                 style = MaterialTheme.typography.bodyMedium,
+                color = InkMuted,
             )
             when {
                 uiState.searchQuery.isBlank() -> {
@@ -71,9 +75,7 @@ internal fun SearchScreen(
                 }
                 else -> {
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 20.dp),
+                    modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 32.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -96,11 +98,12 @@ private fun EmptySearchState(
     modifier: Modifier = Modifier,
     text: String,
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
+    AssistantPanel(modifier = modifier.fillMaxWidth()) {
         Text(
             modifier = Modifier.padding(16.dp),
             text = text,
             style = MaterialTheme.typography.bodyMedium,
+            color = InkMuted,
         )
     }
 }
@@ -111,7 +114,7 @@ private fun SearchResultCard(
     query: String,
     onClick: () -> Unit,
 ) {
-    Card(
+    AssistantPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
@@ -126,11 +129,13 @@ private fun SearchResultCard(
                 modifier = Modifier.padding(top = 6.dp),
                 text = "片段 ${result.chunkIndex + 1}  命中 ${result.matchCount} 次",
                 style = MaterialTheme.typography.bodySmall,
+                color = AssistantOrange,
             )
             Text(
                 modifier = Modifier.padding(top = 10.dp),
                 text = buildSnippet(result.snippet, query),
                 style = MaterialTheme.typography.bodyMedium,
+                color = InkMuted,
             )
         }
     }
